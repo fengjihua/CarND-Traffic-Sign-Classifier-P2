@@ -26,6 +26,7 @@
 
 # load pickled data
 import pickle
+import pandas as pd
 
 # TODO: Fill this in based on where you saved the training and testing data
 training_file = './data/train.p'
@@ -42,6 +43,12 @@ with open(testing_file, mode='rb') as f:
 X_train, y_train = train['features'], train['labels']
 X_valid, y_valid = valid['features'], valid['labels']
 X_test, y_test = test['features'], test['labels']
+
+# Read signnames.csv
+df_sign=pd.read_csv('./signnames.csv')
+# print (df_sign.head())
+# print (df_sign.tail())
+# print(df_sign.loc[df_sign.loc[:, 'ClassId']==40, 'SignName'].values[0])
 
 
 # ---
@@ -65,7 +72,7 @@ X_test, y_test = test['features'], test['labels']
 ### Use python, pandas or numpy methods rather than hard coding the results
 
 # TODO: Number of training examples
-n_train = X_train.shape[0]
+n_train = X_valid.shape[0]
 
 # TODO: Number of validation examples
 n_validation = X_valid.shape[0]
@@ -80,9 +87,13 @@ image_shape = X_train[0].shape
 n_classes = len(set(y_train))
 
 print("Number of training examples =", n_train)
+print("Number of valid examples =", n_validation)
 print("Number of testing examples =", n_test)
 print("Image data shape =", image_shape)
 print("Number of classes =", n_classes)
+
+print (df_sign.head())
+print (df_sign.tail())
 
 
 # ### Include an exploratory visualization of the dataset
@@ -103,8 +114,17 @@ get_ipython().magic('matplotlib inline')
 
 index = 88
 print(y_train[index])
+plt.figure(figsize=(1,1))
 plt.imshow(X_train[index])
+# plt.imshow(rgb2gray(X_train[index]), cmap = plt.cm.gray)
 plt.show()
+
+label_counts = pd.Series(train['labels']).value_counts()
+# print (label_counts)
+ax=label_counts.plot(kind='bar', figsize=(20,6))
+ax.set_ylabel('Count')
+ax.set_xlabel('Class ID')
+ax.set_title('Distribution of Sample Count per Class')
 
 
 # ----
@@ -134,73 +154,97 @@ plt.show()
 # 
 # Use the code cell (or multiple code cells, if necessary) to implement the first step of your project.
 
-# In[5]:
+# In[4]:
 
 ### Preprocess the data here. It is required to normalize the data. Other preprocessing steps could include 
 ### converting to grayscale, etc.
 ### Feel free to use as many code cells as needed.
 
 import numpy as np
+from skimage.color import rgb2gray,rgb2grey,rgb2hsv
 from keras.preprocessing.image import ImageDataGenerator
 
 
-# In[ ]:
+# In[5]:
 
 # 1.AUGMENT THE TRAINING DATA
 # Augmenting the training set might help improve model performance. Common data augmentation techniques include rotation, translation, zoom, flips, and/or color perturbation. These techniques can be used individually or combined.
 # https://keras.io/preprocessing/image/ 
-# Datagen = ImageDataGenerator(
-#     zoom_range=[0.8, 1.2],
-#     width_shift_range=0.2,
-#     height_shift_range=0.2,
-#     horizontal_flip=False,
-#     vertical_flip = False,
-#     fill_mode='nearest')
+Datagen = ImageDataGenerator(
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    horizontal_flip=False,
+    vertical_flip = False,
+    fill_mode='nearest')
 
-# # x_image = X_train[0:2]
-# # y_image = y_train[0:2]
-# # # print(x_image.shape, np.max(x_image[1]), np.min(x_image[1]))
-# print('Before Augment: ', X_train.shape, y_train.shape, y_train[-10:])
-# # print(len(X_train), len(y_train))
+# x_image = X_train[0:2]
+# y_image = y_train[0:2]
+# # print(x_image.shape, np.max(x_image[1]), np.min(x_image[1]))
+print('Before Augment: ', X_train.shape, y_train.shape, y_train[-10:])
+# print(len(X_train), len(y_train))
 
-# num_augment = 0
-# limit_augment = 5000
+num_augment = 0
+limit_augment = 30000
 
-# X_temp = None
-# y_temp = None
-# for x_gen, y_gen in Datagen.flow(X_train, y_train, batch_size=1):
-#     num_augment +=1
-# #     print(i, np.max(x_gen), np.min(x_gen), x_gen.shape, y_gen)
-#     if X_temp is None:
-#         X_temp = x_gen
-#         y_temp = y_gen
-#     else:
-#         X_temp = np.append(X_temp, x_gen, axis=0)
-#         y_temp = np.append(y_temp, y_gen, axis=0)
+X_aug = None
+y_aug = None
+# for x_gen, y_gen in Datagen.flow(X_train, y_train, batch_size=1, save_to_dir='./data/augmentation', save_prefix=num_augment, 
+#                           save_format='jpg'):
+for x_gen, y_gen in Datagen.flow(X_train, y_train, batch_size=1):
+    num_augment +=1
+#     print(i, np.max(x_gen), np.min(x_gen), x_gen.shape, y_gen)
+    if X_aug is None:
+        X_aug = x_gen
+        y_aug = y_gen
+    else:
+        X_aug = np.append(X_aug, x_gen, axis=0)
+        y_aug = np.append(y_aug, y_gen, axis=0)
     
-#     if num_augment%100 == 0:
-#         X_train = np.append(X_train, X_temp, axis=0)
-#         y_train = np.append(y_train, y_temp, axis=0)
-#         X_temp = None
-#         y_temp = None
-#         print('Augmenting {}/{}...'.format(num_augment,limit_augment))
+    if num_augment%500 == 0:
+        X_train = np.append(X_train, X_aug, axis=0)
+        y_train = np.append(y_train, y_aug, axis=0)
+        X_aug = None
+        y_aug = None
+        print('Augment in progress {}/{}...'.format(num_augment,limit_augment))
     
-#     if num_augment > limit_augment - 1:
-#         break
+    if num_augment > limit_augment - 1:
+        break
         
-# print('After Augment: ', X_train.shape, y_train.shape, y_train[-10:])
+print('After Augment: ', X_train.shape, y_train.shape, y_train[-10:])
+
+
+# In[ ]:
+
+# 2. Grayscale the image
+# X_train = np.dot(X_train[...,:3], [0.299, 0.587, 0.144])
+# X_train = rgb2gray(X_train)
+# X_train = X_train.reshape(X_train.shape + (1,))
+# X_valid = rgb2gray(X_valid)
+# X_valid = X_valid.reshape(X_valid.shape + (1,))
+# X_test = rgb2gray(X_test)
+# X_test = X_test.reshape(X_test.shape + (1,))
+
+# print(X_train.shape)
+
+# plt.figure()
+# # plt.subplot(221)
+# # plt.imshow(X_train[index])
+
+# # plt.subplot(222)
+# plt.imshow(X_train[index].reshape((32,32)), cmap = plt.cm.gray)
+# plt.show()
 
 
 # In[6]:
 
-# 2.KFold
+# KFold
 
 # 3.Nomalize
-print('Before Normalize: ', X_train[0][0][0])
+print('Before Normalize: ', np.min(X_train), np.max(X_train), np.mean(X_train))
 X_train = np.divide(np.add(X_train, -128), 128)
 X_valid = np.divide(np.add(X_valid, -128), 128)
 X_test = np.divide(np.add(X_test, -128), 128)
-print('After Normalize: ', X_train[0][0][0])
+print('After Normalize: ', np.min(X_train), np.max(X_train), np.mean(X_train))
 
 
 # ### Model Architecture
@@ -219,51 +263,55 @@ def LeNet(x):
     sigma = 0.1
     keep_prob = 1.0
     
-    # SOLUTION: Layer 1: Convolutional. Input = 32x32x3. Output = 28x28x6.
-    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 3, 6), mean = mu, stddev = sigma))
-    conv1_b = tf.Variable(tf.zeros(6))
+    # SOLUTION: Layer 1: Convolutional. Input = 32x32x3. Output = 28x28x64.
+#     conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 3, 6), mean = mu, stddev = sigma))
+#     conv1_b = tf.Variable(tf.zeros(6))
+    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 3, 64), mean = mu, stddev = sigma))
+    conv1_b = tf.Variable(tf.zeros(64))
     conv1   = tf.nn.conv2d(x, conv1_W, strides=[1, 1, 1, 1], padding='VALID', name='conv1') + conv1_b
 
     # SOLUTION: Activation.
     conv1 = tf.nn.relu(conv1)
 
-    # SOLUTION: Pooling. Input = 28x28x6. Output = 14x14x6.
+    # SOLUTION: Pooling. Input = 28x28x64. Output = 14x14x64.
     conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
-    # SOLUTION: Layer 2: Convolutional. Output = 10x10x16.
-    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean = mu, stddev = sigma))
-    conv2_b = tf.Variable(tf.zeros(16))
+    # SOLUTION: Layer 2: Convolutional. Output = 10x10x128.
+#     conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean = mu, stddev = sigma))
+#     conv2_b = tf.Variable(tf.zeros(16))
+    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 64, 128), mean = mu, stddev = sigma))
+    conv2_b = tf.Variable(tf.zeros(128))
     conv2   = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID', name='conv2') + conv2_b
     
     # SOLUTION: Activation.
     conv2 = tf.nn.relu(conv2)
 
-    # SOLUTION: Pooling. Input = 10x10x16. Output = 5x5x16.
+    # SOLUTION: Pooling. Input = 10x10x128. Output = 5x5x128.
     conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
-    # SOLUTION: Flatten. Input = 5x5x16. Output = 400.
+    # SOLUTION: Flatten. Input = 5x5x128. Output = 3200.
     fc0   = flatten(conv2)
     
-    # SOLUTION: Layer 3: Fully Connected. Input = 400. Output = 120.
-    fc1_W = tf.Variable(tf.truncated_normal(shape=(400, 120), mean = mu, stddev = sigma))
-    fc1_b = tf.Variable(tf.zeros(120))
+    # SOLUTION: Layer 3: Fully Connected. Input = 3200. Output = 1024.
+    fc1_W = tf.Variable(tf.truncated_normal(shape=(3200, 1024), mean = mu, stddev = sigma))
+    fc1_b = tf.Variable(tf.zeros(1024))
     fc1   = tf.matmul(fc0, fc1_W) + fc1_b
     
     # SOLUTION: Activation.
     fc1    = tf.nn.relu(fc1)
     fc1 = tf.nn.dropout(fc1, keep_prob)
 
-    # SOLUTION: Layer 4: Fully Connected. Input = 120. Output = 84.
-    fc2_W  = tf.Variable(tf.truncated_normal(shape=(120, 84), mean = mu, stddev = sigma))
-    fc2_b  = tf.Variable(tf.zeros(84))
+    # SOLUTION: Layer 4: Fully Connected. Input = 1024. Output = 512.
+    fc2_W  = tf.Variable(tf.truncated_normal(shape=(1024, 512), mean = mu, stddev = sigma))
+    fc2_b  = tf.Variable(tf.zeros(512))
     fc2    = tf.matmul(fc1, fc2_W) + fc2_b
     
     # SOLUTION: Activation.
     fc2    = tf.nn.relu(fc2)
     fc2 = tf.nn.dropout(fc2, keep_prob)
 
-    # SOLUTION: Layer 5: Fully Connected. Input = 84. Output = n_classes(43).
-    fc3_W  = tf.Variable(tf.truncated_normal(shape=(84, n_classes), mean = mu, stddev = sigma))
+    # SOLUTION: Layer 5: Fully Connected. Input = 512. Output = n_classes(43).
+    fc3_W  = tf.Variable(tf.truncated_normal(shape=(512, n_classes), mean = mu, stddev = sigma))
     fc3_b  = tf.Variable(tf.zeros(n_classes))
     logits = tf.matmul(fc2, fc3_W) + fc3_b
     
@@ -278,7 +326,7 @@ def LeNet(x):
 # A validation set can be used to assess how well the model is performing. A low accuracy on the training and validation
 # sets imply underfitting. A high accuracy on the training set but low accuracy on the validation set implies overfitting.
 
-# In[8]:
+# In[10]:
 
 ### Train your model here.
 ### Calculate and report the accuracy on the training and validation set.
@@ -307,13 +355,13 @@ logits, regularizers = LeNet(x) # (n,43)
 cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_y, logits=logits) # (n,43)
 loss_operation = tf.reduce_mean(cross_entropy)
 # L2 regularization for the fully connected parameters. Add regularization to loss term
-# loss_operation += factor * regularizers
+loss_operation += factor * regularizers
 
 optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate)
 training_operation = optimizer.minimize(loss_operation)
 
 
-# In[9]:
+# In[11]:
 
 # Model Evaluation
 correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(one_hot_y, 1)) # (n,1)
@@ -337,7 +385,7 @@ def evaluate(X_data, y_data):
     return total_accuracy / num_examples, total_loss / num_examples
 
 
-# In[10]:
+# In[12]:
 
 from sklearn.utils import shuffle
 
@@ -373,34 +421,34 @@ with tf.Session() as sess:
                 valid_accs.append(accuracy)
                 
                 accuracy, loss = evaluate(X_train, y_train)
+                print("Train Loss = {:.3f}, Train Accuracy = {:.3f}".format(loss, accuracy))
                 train_loss.append(loss)
                 train_accs.append(accuracy)
-#                 print("Validation Accuracy = {:.3f}".format(validation_accuracy))
 #                 print()
         
     saver.save(sess, './lenet')
     print("Model saved")
 
 
-# In[11]:
+# In[13]:
 
 # Plot classification accuracy on both training and validation set for better visualization.
 fig = plt.figure()
 fig.add_subplot(121)
 plt.plot(train_accs, linewidth=1)
 plt.plot(valid_accs, linewidth=1)
-plt.legend(["training accuracy", "validation accuracy"], loc=4)
+plt.legend(["Train Accuracy", "Valid Accuracy"], loc=4)
 plt.grid(True)
 
 fig.add_subplot(122)
 plt.plot(train_loss, linewidth=1)
 plt.plot(valid_loss, linewidth=1)
-plt.legend(["training loss", "validation loss"], loc=1)
+plt.legend(["Train Loss", "Valid Loss"], loc=1)
 plt.grid(True)
 plt.show()
 
 
-# In[12]:
+# In[14]:
 
 # Test the model
 with tf.Session() as sess:
@@ -420,7 +468,7 @@ with tf.Session() as sess:
 
 # ### Load and Output the Images
 
-# In[13]:
+# In[28]:
 
 ### Load the images and plot them here.
 ### Feel free to use as many code cells as needed.
@@ -429,36 +477,49 @@ import matplotlib.image as mpimg
 from PIL import Image
 import numpy as np 
 
-image_samples = list()
+X_sample = list()
 for i in range(1,6):
-    image = Image.open('./data/sample/{}.jpg'.format(i))
+    image = Image.open('./data/sample/{}_100.jpg'.format(i))
     image_resize = image.resize((32,32))
 
     image_final = np.array(image_resize)
 #     print(image_final.shape)
 #     print(type(image), type(image_final))
-    image_samples.append(image_final)
+    X_sample.append(image_final)
 
-image_samples = np.array(image_samples)
-print(image_samples.shape)
-plt.imshow(image_samples[3])
+X_sample = np.array(X_sample)
+print(X_sample.shape)
+plt.figure(figsize=(1,1))
+plt.imshow(X_sample[3])
 
 
 # ### Predict the Sign Type for Each Image
 
-# In[14]:
+# In[29]:
 
 ### Run the predictions here and use the model to output the prediction for each image.
 ### Make sure to pre-process the images with the same pre-processing pipeline used earlier.
 ### Feel free to use as many code cells as needed.
 
+# Grayscale the sample
+# X_sample = rgb2gray(X_sample)
+# X_sample = X_sample.reshape(X_sample.shape + (1,))
+
+# print(X_sample.shape)
+# plt.figure(figsize=(1,1))
+# plt.imshow(X_sample[3].reshape((32,32)), cmap = plt.cm.gray)
+# plt.show()
+
+
+# In[30]:
+
 # Normalize the sample images
-print('Before Normalize: ', image_samples[0][0][0])
-image_samples = np.divide(np.add(image_samples, -128), 128)
-print('After Normalize: ', image_samples[0][0][0])
+print('Before Normalize: ', np.min(X_sample), np.max(X_sample))
+X_sample = np.divide(np.add(X_sample, -128), 128)
+print('After Normalize: ', np.min(X_sample), np.max(X_sample))
 
 
-# In[16]:
+# In[31]:
 
 # Run the model to predict
 prediction = tf.argmax(logits,1) # (n,43) -> (n,1)
@@ -467,17 +528,17 @@ preds = []
 with tf.Session() as sess:
     saver.restore(sess, tf.train.latest_checkpoint('.'))
     sess = tf.get_default_session()
-    preds = sess.run(prediction, feed_dict={x: image_samples})
+    preds = sess.run(prediction, feed_dict={x: X_sample})
     print('Predictions: ',preds)
 
 
 # ### Analyze Performance
 
-# In[17]:
+# In[32]:
 
 ### Calculate the accuracy for these 5 new images. 
 ### For example, if the model predicted 1 out of 5 signs correctly, it's 20% accurate on these new images.
-trues = [13,17,33,3,37]
+trues = [13,17,14,1,35]
 print('Accuracy of sample images: ',np.mean(preds == trues))
 
 
@@ -521,7 +582,7 @@ print('Accuracy of sample images: ',np.mean(preds == trues))
 # 
 # Looking just at the first row we get `[ 0.34763842,  0.24879643,  0.12789202]`, you can confirm these are the 3 largest probabilities in `a`. You'll also notice `[3, 0, 5]` are the corresponding indices.
 
-# In[18]:
+# In[33]:
 
 ### Print out the top five softmax probabilities for the predictions on the German traffic sign images found on the web. 
 ### Feel free to use as many code cells as needed.
@@ -532,9 +593,27 @@ softmax_top5 = []
 with tf.Session() as sess:
     saver.restore(sess, tf.train.latest_checkpoint('.'))
     sess = tf.get_default_session()
-    softmax_all = sess.run(softmax, feed_dict={x: image_samples})
+    softmax_all = sess.run(softmax, feed_dict={x: X_sample})
     softmax_top5 = sess.run(tf.nn.top_k(tf.constant(softmax_all), k=5))
     print('Softmax: ',softmax_top5)
+
+print(softmax_top5.indices[0])
+    
+plt.figure(figsize=(5,5))
+for i in range(len(X_sample)):
+    plt.subplot(5,2,(i+1)*2-1)
+    plt.imshow(X_sample[i])
+    
+    plt.subplot(5,2,(i+1)*2)
+    plt.axis('off')
+    plt.text(0, 0.5, "Probability: {:.2f} {}, {:.2f} {}, {:.2f} {}, {:.2f} {}, {:.2f} {}".format(
+        softmax_top5.values[i][0], df_sign.loc[df_sign.loc[:, 'ClassId']==softmax_top5.indices[i][0], 'SignName'].values[0],
+        softmax_top5.values[i][1], df_sign.loc[df_sign.loc[:, 'ClassId']==softmax_top5.indices[i][1], 'SignName'].values[0],
+        softmax_top5.values[i][2], df_sign.loc[df_sign.loc[:, 'ClassId']==softmax_top5.indices[i][2], 'SignName'].values[0],
+        softmax_top5.values[i][3], df_sign.loc[df_sign.loc[:, 'ClassId']==softmax_top5.indices[i][3], 'SignName'].values[0],
+        softmax_top5.values[i][4], df_sign.loc[df_sign.loc[:, 'ClassId']==softmax_top5.indices[i][4], 'SignName'].values[0],
+    )
+            , size = 15)
 
 
 # ### Project Writeup
@@ -564,7 +643,7 @@ with tf.Session() as sess:
 #  <p></p> 
 # 
 
-# In[19]:
+# In[34]:
 
 ### Visualize your network's feature maps here.
 ### Feel free to use as many code cells as needed.
@@ -582,12 +661,13 @@ def outputFeatureMap(image_input, tf_activation, activation_min=-1, activation_m
     # If you get an error tf_activation is not defined it may be having trouble accessing the variable from inside a function
     activation = tf_activation.eval(session=sess,feed_dict={x : image_input})
     featuremaps = activation.shape[3]
+    print(activation.shape)
     plt.figure(plt_num, figsize=(15,15))
     for featuremap in range(featuremaps):
-        plt.subplot(6,8, featuremap+1) # sets the number of feature maps to show on each row and column
-        plt.title('FeatureMap ' + str(featuremap)) # displays the feature map number
+        plt.subplot(16,8, featuremap+1) # sets the number of feature maps to show on each row and column
+        plt.title('Map ' + str(featuremap)) # displays the feature map number
         if activation_min != -1 & activation_max != -1:
-            plt.imshow(activation[0,:,:, featuremap], interpolation="nearest", vmin =activation_min, vmax=activation_max, cmap="gray")
+            plt.imshow(activation[0,:,:, featuremap], interpolation="nearest", vmin=activation_min, vmax=activation_max, cmap="gray")
         elif activation_max != -1:
             plt.imshow(activation[0,:,:, featuremap], interpolation="nearest", vmax=activation_max, cmap="gray")
         elif activation_min !=-1:
@@ -596,16 +676,16 @@ def outputFeatureMap(image_input, tf_activation, activation_min=-1, activation_m
             plt.imshow(activation[0,:,:, featuremap], interpolation="nearest", cmap="gray")
 
 
-# In[20]:
+# In[35]:
 
-image_input = image_samples[2]
+image_input = X_sample[0]
 # Plot what we are passing to the network
-plt.figure()
+plt.figure(figsize=(1,1))
 plt.imshow(image_input)
 print(image_input.shape)
 
 
-# In[21]:
+# In[37]:
 
 with tf.Session() as sess:
     saver.restore(sess, tf.train.latest_checkpoint('.'))
